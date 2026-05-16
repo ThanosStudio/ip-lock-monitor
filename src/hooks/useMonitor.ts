@@ -60,11 +60,11 @@ export function useMonitor() {
       .catch(() => {})
   }, [])
 
-  const doCheck = useCallback(async () => {
+  const doCheck = useCallback(async (lockedIpOverride?: string) => {
     setState((s) => ({ ...s, isChecking: true, countdown: 0, error: null }))
     try {
       const info = await getIpInfo()
-      const { lockedIp } = stateRef.current
+      const lockedIp = lockedIpOverride ?? stateRef.current.lockedIp
       const isMatch = info.ip === lockedIp
       const newStatus: MonitorStatus = isMatch ? 'safe' : 'alert'
       setState((s) => ({
@@ -102,8 +102,8 @@ export function useMonitor() {
       }))
       await syncTray('safe', true)
 
-      // Immediate first check
-      await doCheck()
+      // Immediate first check — pass lockedIp directly; stateRef not yet updated (batched setState)
+      await doCheck(lockedIp)
 
       // Start countdown + periodic check
       intervalRef.current = setInterval(() => {
