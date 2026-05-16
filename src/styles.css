@@ -1,25 +1,19 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
 }
 
-html, body, #root {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+#root {
+  border-radius: 12px;
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: transparent;
   -webkit-font-smoothing: antialiased;
-}
-
-button {
-  font-family: inherit;
-}
-
-input {
-  font-family: inherit;
 }
