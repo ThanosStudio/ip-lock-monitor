@@ -1,5 +1,6 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { useEffect, useState } from 'react'
+import { LogicalSize } from '@tauri-apps/api/dpi'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Shield, ShieldCheck, ShieldAlert, Pin, RefreshCw, Play, Square, RotateCcw, LogOut } from 'lucide-react'
 import type { AppConfig } from '../types'
@@ -9,6 +10,11 @@ import { CountryFlag } from './CountryFlag'
 import { IpInfoGrid } from './IpInfoGrid'
 import { IpComparison } from './IpComparison'
 import { SettingsSection } from './SettingsSection'
+
+const MAIN_PANEL_WIDTH = 320
+const MAIN_PANEL_MIN_HEIGHT = 500
+const MAIN_PANEL_MAX_HEIGHT = 760
+const MAIN_PANEL_SCREEN_PADDING = 80
 
 const BANNER_CFG = {
   idle: {
@@ -43,6 +49,8 @@ export function MainPanel() {
   const [lockedIpInput, setLockedIpInput] = useState('')
   const [lockedIpError, setLockedIpError] = useState(false)
   const [detectedAt, setDetectedAt] = useState('')
+  const bannerRef = useRef<HTMLDivElement>(null)
+  const bodyContentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadConfig().then((c) => { setConfig(c); setLockedIpInput(c.lockedIp) })
@@ -54,6 +62,47 @@ export function MainPanel() {
     win.onFocusChanged(({ payload: focused }) => { if (!focused) win.hide() })
       .then((fn) => { unlisten = fn })
     return () => { unlisten?.() }
+  }, [])
+
+  useEffect(() => {
+    const win = getCurrentWebviewWindow()
+    let frameId: number | null = null
+
+    const resizeToContent = () => {
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        frameId = null
+        const bannerHeight = bannerRef.current?.offsetHeight ?? 0
+        const contentHeight = bodyContentRef.current?.scrollHeight ?? 0
+        if (!bannerHeight || !contentHeight) return
+
+        const screenMaxHeight = Math.max(
+          MAIN_PANEL_MIN_HEIGHT,
+          window.screen.availHeight - MAIN_PANEL_SCREEN_PADDING,
+        )
+        const maxHeight = Math.min(MAIN_PANEL_MAX_HEIGHT, screenMaxHeight)
+        const nextHeight = Math.min(
+          Math.max(Math.ceil(bannerHeight + contentHeight), MAIN_PANEL_MIN_HEIGHT),
+          maxHeight,
+        )
+
+        win.setSize(new LogicalSize(MAIN_PANEL_WIDTH, nextHeight)).catch((error) => {
+          console.warn('Failed to resize main panel to fit content.', error)
+        })
+      })
+    }
+
+    const observer = new ResizeObserver(resizeToContent)
+    if (bannerRef.current) observer.observe(bannerRef.current)
+    if (bodyContentRef.current) observer.observe(bodyContentRef.current)
+    window.addEventListener('resize', resizeToContent)
+    resizeToContent()
+
+    return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      observer.disconnect()
+      window.removeEventListener('resize', resizeToContent)
+    }
   }, [])
 
   useEffect(() => {
@@ -77,11 +126,11 @@ export function MainPanel() {
 
   return (
     <div
-      className="w-full min-h-full select-none bg-white"
+      className="w-full h-full flex flex-col select-none bg-white rounded-xl overflow-hidden"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}
     >
       {/* ── Banner ── */}
-      <div style={{ background: cfg.gradient }} className="px-3.5 py-[11px] flex items-center gap-2.5">
+      <div ref={bannerRef} style={{ background: cfg.gradient }} className="px-3.5 py-[11px] flex items-center gap-2.5">
         <div
           className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center flex-shrink-0"
           style={{ background: cfg.shieldBg, boxShadow: cfg.shieldGlow }}
@@ -125,7 +174,8 @@ export function MainPanel() {
       </div>
 
       {/* ── Body ── */}
-      <div className="px-3 pt-2.5 pb-3">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-3 pt-2.5 pb-3">
+        <div ref={bodyContentRef}>
 
         {/* IP card */}
         {info && (
@@ -144,7 +194,7 @@ export function MainPanel() {
                 {!isMonitoring && (
                   <button
                     onClick={() => { setLockedIpInput(info.ip); setLockedIpError(false) }}
-                    className="flex items-center gap-[3px] h-[20px] px-[7px] bg-blue-50 text-blue-500 border border-blue-200 rounded-[6px] text-[9px] font-semibold hover:bg-blue-100 transition-colors"
+                    className="flex items-center gap-[3px] h-[20px] px-[7px] bg-blue-50 text-blue-500 border border-blue-200 rounded-[6px] text-[9px] font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
                   >
                     <Pin size={9} strokeWidth={2.5} />
                     填入
@@ -153,7 +203,7 @@ export function MainPanel() {
                 <button
                   onClick={refreshCheck}
                   disabled={state.isChecking}
-                  className="flex items-center gap-[3px] h-[20px] px-[7px] bg-slate-100 text-slate-500 border border-slate-200 rounded-[6px] text-[9px] font-semibold hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-[3px] h-[20px] px-[7px] bg-slate-100 text-slate-500 border border-slate-200 rounded-[6px] text-[9px] font-semibold hover:bg-slate-200 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
                 >
                   <motion.span
                     animate={state.isChecking ? { rotate: 360 } : { rotate: 0 }}
@@ -232,7 +282,7 @@ export function MainPanel() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleStart}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(5,150,105,0.35)] hover:bg-emerald-700 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(5,150,105,0.35)] hover:bg-emerald-700 transition-colors cursor-pointer"
             >
               <Play size={12} strokeWidth={2.5} />
               开始监控
@@ -243,7 +293,7 @@ export function MainPanel() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={stopMonitoring}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-red-500 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(239,68,68,0.3)] hover:bg-red-600 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-red-500 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(239,68,68,0.3)] hover:bg-red-600 transition-colors cursor-pointer"
             >
               <Square size={12} strokeWidth={2.5} />
               停止监控
@@ -254,7 +304,7 @@ export function MainPanel() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={stopMonitoring}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(220,38,38,0.3)] hover:bg-red-700 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(220,38,38,0.3)] hover:bg-red-700 transition-colors cursor-pointer"
             >
               <RotateCcw size={12} strokeWidth={2.5} />
               重置监控
@@ -264,13 +314,14 @@ export function MainPanel() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleQuit}
-            className="flex items-center justify-center gap-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg px-2.5 py-2 text-[10px] hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center gap-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg px-2.5 py-2 text-[10px] hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <LogOut size={11} strokeWidth={2.5} />
             退出
           </motion.button>
         </div>
 
+        </div>
       </div>
     </div>
   )

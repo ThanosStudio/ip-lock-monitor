@@ -39,7 +39,7 @@ export function AlertModal() {
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className="w-full select-none"
+      className="w-full h-full flex flex-col select-none rounded-xl overflow-hidden bg-red-50"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' }}
     >
       {/* Title bar */}
@@ -54,7 +54,7 @@ export function AlertModal() {
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={handleClose}
-          className="w-5 h-5 rounded-[5px] bg-white/10 flex items-center justify-center text-gray-500 hover:bg-white/20 hover:text-gray-300 transition-colors"
+          className="w-5 h-5 rounded-[5px] bg-white/10 flex items-center justify-center text-gray-500 hover:bg-white/20 hover:text-gray-300 transition-colors cursor-pointer"
         >
           <X size={10} strokeWidth={2.5} />
         </button>
@@ -77,7 +77,7 @@ export function AlertModal() {
       </div>
 
       {/* Body */}
-      <div className="px-3.5 py-3 bg-red-50">
+      <div className="flex-1 overflow-y-auto px-3.5 py-3 bg-red-50">
         {info && (
           <>
             <IpComparison lockedIp={state.lockedIp} currentIp={info.ip} />
@@ -102,14 +102,14 @@ export function AlertModal() {
         <div className="flex gap-1.5">
           <button
             onClick={handleStopAndClose}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white border-none rounded-lg py-2.5 text-[12px] font-bold hover:bg-red-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white border-none rounded-lg py-2.5 text-[12px] font-bold hover:bg-red-700 transition-colors cursor-pointer"
           >
             <RotateCcw size={12} strokeWidth={2.5} />
             重置监控并关闭
           </button>
           <button
             onClick={handleClose}
-            className="bg-slate-100 text-gray-700 border-none rounded-lg px-3 py-2.5 text-[11px] hover:bg-slate-200 transition-colors"
+            className="bg-slate-100 text-gray-700 border-none rounded-lg px-3 py-2.5 text-[11px] hover:bg-slate-200 transition-colors cursor-pointer"
           >
             关闭
           </button>

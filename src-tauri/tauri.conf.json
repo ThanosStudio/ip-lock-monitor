@@ -23,6 +23,7 @@
     }
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -31,6 +32,7 @@
         "height": 500,
         "resizable": false,
         "decorations": false,
+        "transparent": true,
         "visible": false,
         "skipTaskbar": true,
         "shadow": true,
@@ -40,9 +42,10 @@
         "label": "alert",
         "title": "IP 泄露警告",
         "width": 380,
-        "height": 430,
+        "height": 540,
         "resizable": false,
         "decorations": false,
+        "transparent": true,
         "visible": false,
         "alwaysOnTop": true,
         "center": true,

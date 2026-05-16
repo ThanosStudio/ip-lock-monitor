@@ -1,8 +1,7 @@
-use tauri::{App, AppHandle, Emitter, Manager};
+use tauri::{App, AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Rect};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri_plugin_positioner::{Position, WindowExt};
 
 pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let toggle_item = MenuItem::with_id(app, "toggle_monitor", "▶ 开始监控", true, None::<&str>)?;
@@ -20,11 +19,13 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
+                position,
+                rect,
                 ..
             } = event
             {
                 let app = tray.app_handle();
-                toggle_main_window(app);
+                toggle_main_window(app, position, rect);
             }
         })
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -41,16 +42,52 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn toggle_main_window(app: &AppHandle) {
+fn toggle_main_window(app: &AppHandle, click_pos: PhysicalPosition<f64>, tray_rect: Rect) {
     if let Some(window) = app.get_webview_window("main") {
         let is_visible = window.is_visible().unwrap_or(false);
         if is_visible {
             let _ = window.hide();
-        } else {
-            let _ = window.move_window(Position::TrayCenter);
-            let _ = window.set_always_on_top(true);
-            let _ = window.show();
+            return;
         }
+
+        // Find the monitor that the tray click occurred on, falling back to primary
+        let monitor = window
+            .monitor_from_point(click_pos.x, click_pos.y)
+            .ok()
+            .flatten()
+            .or_else(|| window.primary_monitor().ok().flatten());
+
+        if let Some(monitor) = monitor {
+            let scale = monitor.scale_factor();
+            let mpos = monitor.position();  // PhysicalPosition<i32>
+            let msize = monitor.size();     // PhysicalSize<u32>
+
+            // Convert tray rect to physical pixels (they're already physical, cast is a no-op)
+            let tray_pos = tray_rect.position.to_physical::<f64>(scale);
+            let tray_size = tray_rect.size.to_physical::<f64>(scale);
+
+            let win_size = window
+                .outer_size()
+                .unwrap_or(PhysicalSize::new(320, 500));
+
+            // Center window horizontally on the tray icon, clamped to monitor bounds
+            let win_x = (tray_pos.x + tray_size.width / 2.0 - win_size.width as f64 / 2.0)
+                .max(mpos.x as f64)
+                .min((mpos.x as f64) + (msize.width as f64) - (win_size.width as f64))
+                as i32;
+
+            // Place window just below the tray icon (macOS menu bar is at top)
+            let win_y = (tray_pos.y + tray_size.height + 4.0) as i32;
+
+            let _ = window.set_position(PhysicalPosition::new(win_x, win_y));
+        } else {
+            // Fallback: positioner-based centering
+            use tauri_plugin_positioner::{Position, WindowExt};
+            let _ = window.move_window(Position::TrayCenter);
+        }
+
+        let _ = window.set_always_on_top(true);
+        let _ = window.show();
     }
 }
 

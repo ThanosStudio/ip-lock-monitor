@@ -27,7 +27,7 @@ function Toggle({ label, description, icon, checked, onChange }: ToggleProps) {
       </div>
       <button
         onClick={() => onChange(!checked)}
-        className="relative flex-shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none"
+        className="relative flex-shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none cursor-pointer"
         style={{ background: checked ? '#059669' : '#e2e8f0' }}
       >
         <motion.div
