@@ -17,7 +17,7 @@ const STORE_FILE = 'config.json'
 let _store: Awaited<ReturnType<typeof load>> | null = null
 
 async function getStore() {
-  if (!_store) _store = await load(STORE_FILE, { autoSave: false })
+  if (!_store) _store = await load(STORE_FILE, { defaults: {}, autoSave: false })
   return _store
 }
 
