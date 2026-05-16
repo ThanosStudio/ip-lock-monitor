@@ -11,7 +11,7 @@ interface ToggleProps {
 
 function Toggle({ label, description, checked, onChange }: ToggleProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
       <div>
         <div style={{ fontSize: 11, color: '#374151', fontWeight: 500 }}>{label}</div>
         <div style={{ fontSize: 9, color: '#94a3b8' }}>{description}</div>
@@ -118,8 +118,7 @@ export function SettingsSection({
       </div>
 
       {/* Settings toggles */}
-      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8 }}>
-        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>设置</div>
+      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
         <Toggle
           label="开机自动启动"
           description="随系统启动常驻菜单栏"
