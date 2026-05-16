@@ -1,37 +1,40 @@
 import { enable, disable } from '@tauri-apps/plugin-autostart'
 import { useCallback } from 'react'
+import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
+import { Lock, Monitor, Bell } from 'lucide-react'
 import { saveConfig } from '../store/config'
 
 interface ToggleProps {
   label: string
   description: string
+  icon: ReactNode
   checked: boolean
   onChange: (v: boolean) => void
 }
 
-function Toggle({ label, description, checked, onChange }: ToggleProps) {
+function Toggle({ label, description, icon, checked, onChange }: ToggleProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-      <div>
-        <div style={{ fontSize: 11, color: '#374151', fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 9, color: '#94a3b8' }}>{description}</div>
+    <div className="flex items-center justify-between py-[5px]">
+      <div className="flex items-center gap-2">
+        <div className="w-[18px] h-[18px] rounded-[5px] bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+          {icon}
+        </div>
+        <div>
+          <div className="text-[11px] font-medium text-gray-700">{label}</div>
+          <div className="text-[8.5px] text-slate-400 mt-px">{description}</div>
+        </div>
       </div>
       <button
         onClick={() => onChange(!checked)}
-        style={{
-          width: 32, height: 18,
-          background: checked ? '#059669' : '#e2e8f0',
-          borderRadius: 9, border: 'none', cursor: 'pointer',
-          position: 'relative', flexShrink: 0, transition: 'background 0.2s',
-        }}
+        className="relative flex-shrink-0 w-8 h-[18px] rounded-full transition-colors duration-200 focus:outline-none"
+        style={{ background: checked ? '#059669' : '#e2e8f0' }}
       >
-        <div style={{
-          width: 14, height: 14, background: '#fff', borderRadius: '50%',
-          position: 'absolute', top: 2,
-          ...(checked ? { right: 2 } : { left: 2 }),
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-          transition: 'all 0.2s',
-        }} />
+        <motion.div
+          className="absolute top-[2px] w-[14px] h-[14px] bg-white rounded-full shadow-sm"
+          animate={{ x: checked ? 14 : 2 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        />
       </button>
     </div>
   )
@@ -87,16 +90,16 @@ export function SettingsSection({
   return (
     <div>
       {/* Locked IP */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginBottom: 4 }}>
-          🔒 锁定 IP{isMonitoring ? '（监控中不可修改）' : '（回车确认）'}
+      <div className="mb-2">
+        <div className="flex items-center gap-1 text-[9.5px] font-semibold text-slate-500 mb-1.5">
+          <Lock size={10} strokeWidth={2.5} />
+          锁定 IP
+          <span className="font-normal text-slate-400">
+            {isMonitoring ? '（监控中不可修改）' : '（回车确认）'}
+          </span>
         </div>
         {isMonitoring ? (
-          <div style={{
-            background: '#fef9c3', border: '1px solid #fde68a',
-            borderRadius: 6, padding: '5px 8px',
-            fontSize: 11, fontFamily: 'monospace', color: '#78350f',
-          }}>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-[5px] text-[11px] font-mono text-amber-900">
             {lockedIp}
           </div>
         ) : (
@@ -105,30 +108,29 @@ export function SettingsSection({
             onChange={(e) => onLockedIpInputChange?.(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onLockedIpConfirm?.()}
             placeholder="输入要监控的 IP 地址..."
-            style={{
-              width: '100%', boxSizing: 'border-box',
-              border: `1px solid ${lockedIpError ? '#f87171' : '#fcd34d'}`,
-              borderRadius: 6, padding: '5px 8px',
-              fontSize: 11, fontFamily: 'monospace',
-              background: lockedIpError ? '#fef2f2' : '#fffbeb',
-              outline: 'none',
-            }}
+            className={`w-full border rounded-lg px-2.5 py-[5px] text-[11px] font-mono outline-none focus:ring-2 transition-all ${
+              lockedIpError
+                ? 'bg-red-50 border-red-400 text-red-900 focus:ring-red-300'
+                : 'bg-amber-50 border-amber-300 text-amber-900 focus:ring-amber-300'
+            }`}
           />
         )}
       </div>
 
-      {/* Settings toggles */}
-      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
+      {/* Toggles */}
+      <div className="border-t border-slate-100 pt-1">
         <Toggle
           label="开机自动启动"
           description="随系统启动常驻菜单栏"
+          icon={<Monitor size={10} strokeWidth={2.5} className="text-slate-500" />}
           checked={launchAtLogin}
           onChange={handleLaunchAtLoginChange}
         />
-        <div style={{ height: 1, background: '#f0f0f0', margin: '2px 0' }} />
+        <div className="h-px bg-slate-100" />
         <Toggle
           label="强提醒模式"
           description="IP 变更时在屏幕居中弹出警告窗口"
+          icon={<Bell size={10} strokeWidth={2.5} className="text-slate-500" />}
           checked={strongAlertEnabled}
           onChange={handleStrongAlertChange}
         />
