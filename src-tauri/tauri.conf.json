@@ -1,0 +1,8 @@
+{
+  "productName": "ip-monitor",
+  "version": "0.1.0",
+  "identifier": "com.ipmonitor.app",
+  "build": { "frontendDist": "../dist", "devUrl": "http://localhost:1420" },
+  "bundle": { "active": false, "icon": [] },
+  "app": { "windows": [] }
+}
