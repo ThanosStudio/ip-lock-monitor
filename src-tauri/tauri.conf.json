@@ -27,7 +27,7 @@
       {
         "label": "main",
         "title": "IP Monitor",
-        "width": 340,
+        "width": 320,
         "height": 500,
         "resizable": false,
         "decorations": false,
@@ -40,7 +40,7 @@
         "label": "alert",
         "title": "IP 泄露警告",
         "width": 380,
-        "height": 520,
+        "height": 430,
         "resizable": false,
         "decorations": false,
         "visible": false,

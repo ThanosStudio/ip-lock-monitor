@@ -15,6 +15,8 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .tooltip("IP 监控")
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
+            // Must call this first so positioner knows the tray's current screen position
+            tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
@@ -46,8 +48,8 @@ fn toggle_main_window(app: &AppHandle) {
             let _ = window.hide();
         } else {
             let _ = window.move_window(Position::TrayCenter);
+            let _ = window.set_always_on_top(true);
             let _ = window.show();
-            let _ = window.set_focus();
         }
     }
 }

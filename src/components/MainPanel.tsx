@@ -8,10 +8,10 @@ import { IpInfoGrid } from './IpInfoGrid'
 import { IpComparison } from './IpComparison'
 import { SettingsSection } from './SettingsSection'
 
-const BANNER_STYLES = {
-  idle: { background: 'linear-gradient(135deg, #374151, #1f2937)', icon: '🛡️', title: 'IP 监控未启动', subtitle: '请配置锁定 IP 并开始监控' },
-  safe: { background: 'linear-gradient(135deg, #065f46, #059669)', icon: '🛡️', title: 'IP 安全 · 正常', subtitle: null },
-  alert: { background: 'linear-gradient(135deg, #7f1d1d, #dc2626)', icon: '🚨', title: 'IP 已变更！可能泄露', subtitle: null },
+const STATUS_CFG = {
+  idle:  { bg: 'linear-gradient(135deg,#1e293b,#0f172a)', icon: '🛡️', title: 'IP 监控', sub: '未启动' },
+  safe:  { bg: 'linear-gradient(135deg,#064e3b,#065f46)', icon: '🛡️', title: 'IP 安全', sub: '监控中' },
+  alert: { bg: 'linear-gradient(135deg,#7f1d1d,#991b1b)', icon: '🚨', title: 'IP 变更', sub: '可能泄露' },
 }
 
 export function MainPanel() {
@@ -19,35 +19,27 @@ export function MainPanel() {
   const [config, setConfig] = useState<AppConfig>({ lockedIp: '', launchAtLogin: false, strongAlertEnabled: true })
   const [lockedIpInput, setLockedIpInput] = useState('')
   const [lockedIpError, setLockedIpError] = useState(false)
-  const [detectedAt, setDetectedAt] = useState<string>('')
+  const [detectedAt, setDetectedAt] = useState('')
 
   useEffect(() => {
-    loadConfig().then((c) => {
-      setConfig(c)
-      setLockedIpInput(c.lockedIp)
-    })
+    loadConfig().then((c) => { setConfig(c); setLockedIpInput(c.lockedIp) })
   }, [])
 
   useEffect(() => {
     const win = getCurrentWebviewWindow()
     let unlisten: (() => void) | null = null
-    win.onFocusChanged(({ payload: focused }) => {
-      if (!focused) win.hide()
-    }).then((fn) => { unlisten = fn })
+    win.onFocusChanged(({ payload: focused }) => { if (!focused) win.hide() })
+      .then((fn) => { unlisten = fn })
     return () => { unlisten?.() }
   }, [])
 
   useEffect(() => {
-    if (state.status === 'alert') {
+    if (state.status === 'alert')
       setDetectedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
-    }
   }, [state.status])
 
-  const handleStartMonitoring = () => {
-    if (!isValidIp(lockedIpInput)) {
-      setLockedIpError(true)
-      return
-    }
+  const handleStart = () => {
+    if (!isValidIp(lockedIpInput)) { setLockedIpError(true); return }
     setLockedIpError(false)
     startMonitoring(lockedIpInput)
   }
@@ -57,68 +49,94 @@ export function MainPanel() {
   }
 
   const isMonitoring = state.status !== 'idle'
-  const banner = BANNER_STYLES[state.status]
-
-  const countdownText = state.isChecking
-    ? '检查中...'
-    : state.countdown > 0
-    ? `下次检查 ${state.countdown}s 后`
-    : '检查中...'
+  const cfg = STATUS_CFG[state.status]
+  const info = state.currentIpInfo
 
   return (
-    <div style={{ width: 340, fontFamily: 'system-ui, -apple-system, sans-serif', userSelect: 'none' }}>
-      <div style={{ height: 3, background: isMonitoring ? (state.status === 'alert' ? 'linear-gradient(90deg,#7f1d1d,#dc2626)' : 'linear-gradient(90deg,#065f46,#059669)') : '#e2e8f0' }} />
+    <div style={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif', userSelect: 'none', background: '#fff' }}>
 
-      <div style={{ background: banner.background, color: '#fff', padding: '14px 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 28, marginBottom: 3 }}>{banner.icon}</div>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{banner.title}</div>
-        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2 }}>
-          {state.status === 'idle' && banner.subtitle}
-          {state.status === 'safe' && countdownText}
-          {state.status === 'alert' && `检测于 ${detectedAt}`}
+      {/* ── Banner ───────────────────────────────────────────── */}
+      <div style={{ background: cfg.bg, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 22, lineHeight: 1 }}>{cfg.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            {cfg.title}
+            <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.65, marginLeft: 5 }}>{cfg.sub}</span>
+          </div>
+          <div style={{ marginTop: 3, fontSize: 9.5, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em' }}>
+            {state.status === 'idle' && '配置锁定 IP，开始持续监控'}
+            {state.status === 'safe' && (state.isChecking ? '正在检查...' : `下次检查 ${state.countdown}s 后`)}
+            {state.status === 'alert' && `检测于 ${detectedAt}`}
+          </div>
         </div>
+        {state.status === 'safe' && (
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.03em', background: 'rgba(16,185,129,0.2)', color: '#6ee7b7', padding: '2px 8px', borderRadius: 99, border: '1px solid rgba(16,185,129,0.3)', whiteSpace: 'nowrap' }}>
+            匹配 ✓
+          </div>
+        )}
+        {state.status === 'alert' && (
+          <div style={{ fontSize: 9, fontWeight: 700, background: 'rgba(239,68,68,0.2)', color: '#fca5a5', padding: '2px 8px', borderRadius: 99, border: '1px solid rgba(239,68,68,0.3)', whiteSpace: 'nowrap' }}>
+            变更!
+          </div>
+        )}
       </div>
 
-      <div style={{ padding: '12px 14px', background: state.status === 'alert' ? '#fff7f7' : '#fff' }}>
-        {state.currentIpInfo && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <CountryFlag countryCode={state.currentIpInfo.country_code} size={22} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>{state.currentIpInfo.country || 'Unknown'}</div>
-              <div style={{ fontSize: 10, color: '#64748b' }}>
-                {[state.currentIpInfo.city, state.currentIpInfo.region].filter(Boolean).join(', ')}
-                {state.currentIpInfo.asn ? ` · AS${state.currentIpInfo.asn}` : ''}
+      {/* ── Body ─────────────────────────────────────────────── */}
+      <div style={{ padding: '10px 12px 12px' }}>
+
+        {/* Current IP card */}
+        {info && (
+          <div style={{
+            background: state.status === 'alert' ? '#fff5f5' : '#f8fafc',
+            border: `1px solid ${state.status === 'alert' ? '#fecaca' : '#e2e8f0'}`,
+            borderRadius: 9, padding: '8px 10px', marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CountryFlag countryCode={info.country_code} size={18} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 8.5, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 2 }}>当前 IP</div>
+                <div style={{
+                  fontSize: 16, fontFamily: '"SF Mono", ui-monospace, "Cascadia Mono", monospace',
+                  fontWeight: 700, color: state.status === 'alert' ? '#dc2626' : '#0f172a',
+                  letterSpacing: '0.02em', lineHeight: 1,
+                }}>{info.ip}</div>
+                <div style={{ fontSize: 9.5, color: '#64748b', marginTop: 3 }}>
+                  {[info.country, info.city].filter(Boolean).join(' · ')}
+                  {info.asn ? ` · AS${info.asn}` : ''}
+                </div>
               </div>
             </div>
-            {isMonitoring && state.status === 'safe' && (
-              <div style={{ fontSize: 10, fontFamily: 'monospace', background: '#f0fdf4', color: '#065f46', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
-                IP 匹配 ✓
-              </div>
-            )}
           </div>
         )}
 
-        {state.status === 'alert' && state.currentIpInfo && (
-          <IpComparison
-            lockedIp={state.lockedIp}
-            currentIp={state.currentIpInfo.ip}
-            detectedAt={detectedAt}
-          />
-        )}
-
-        {state.currentIpInfo && (
-          <div style={{ marginBottom: 10 }}>
-            <IpInfoGrid info={state.currentIpInfo} isAlert={state.status === 'alert'} />
+        {/* Loading */}
+        {!info && !state.error && (
+          <div style={{ textAlign: 'center', padding: '10px 0 6px', fontSize: 10, color: '#94a3b8' }}>
+            正在检测当前 IP…
           </div>
         )}
 
+        {/* Error */}
         {state.error && (
-          <div style={{ fontSize: 10, color: '#dc2626', background: '#fef2f2', padding: '5px 8px', borderRadius: 6, marginBottom: 8 }}>
+          <div style={{ fontSize: 10, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', padding: '5px 9px', borderRadius: 6, marginBottom: 6 }}>
             {state.error}
           </div>
         )}
 
-        <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 10 }}>
+        {/* Alert: IP comparison */}
+        {state.status === 'alert' && info && (
+          <IpComparison lockedIp={state.lockedIp} currentIp={info.ip} detectedAt={detectedAt} />
+        )}
+
+        {/* Info grid */}
+        {info && (
+          <div style={{ marginBottom: 8 }}>
+            <IpInfoGrid info={info} isAlert={state.status === 'alert'} />
+          </div>
+        )}
+
+        {/* Settings */}
+        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 8 }}>
           <SettingsSection
             lockedIp={state.lockedIp}
             isMonitoring={isMonitoring}
@@ -128,34 +146,34 @@ export function MainPanel() {
             onStrongAlertChange={(v) => setConfig((c) => ({ ...c, strongAlertEnabled: v }))}
             lockedIpInput={lockedIpInput}
             onLockedIpInputChange={(v) => { setLockedIpInput(v); setLockedIpError(false) }}
-            onLockedIpConfirm={handleStartMonitoring}
+            onLockedIpConfirm={handleStart}
             lockedIpError={lockedIpError}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
           {!isMonitoring ? (
-            <button
-              onClick={handleStartMonitoring}
-              style={{ flex: 1, background: '#059669', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >
-              ▶ 开始监控
-            </button>
+            <button onClick={handleStart} style={{
+              flex: 1, background: '#059669', color: '#fff', border: 'none',
+              borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', letterSpacing: '-0.01em',
+              boxShadow: '0 1px 4px rgba(5,150,105,0.35)',
+            }}>▶ 开始监控</button>
           ) : (
-            <button
-              onClick={stopMonitoring}
-              style={{ flex: 1, background: state.status === 'alert' ? '#dc2626' : '#ef4444', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >
-              ⏹ 停止监控
-            </button>
+            <button onClick={stopMonitoring} style={{
+              flex: 1, background: state.status === 'alert' ? '#dc2626' : '#ef4444',
+              color: '#fff', border: 'none', borderRadius: 8, padding: '7px 0',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer', letterSpacing: '-0.01em',
+              boxShadow: `0 1px 4px ${state.status === 'alert' ? 'rgba(220,38,38,0.4)' : 'rgba(239,68,68,0.3)'}`,
+            }}>⏹ 停止监控</button>
           )}
-          <button
-            onClick={handleQuit}
-            style={{ background: '#f1f5f9', color: '#ef4444', border: 'none', borderRadius: 7, padding: '8px 12px', fontSize: 11, cursor: 'pointer' }}
-          >
-            退出程序
-          </button>
+          <button onClick={handleQuit} style={{
+            background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0',
+            borderRadius: 8, padding: '7px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 500,
+          }}>退出</button>
         </div>
+
       </div>
     </div>
   )

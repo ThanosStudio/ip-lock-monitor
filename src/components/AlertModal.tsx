@@ -30,7 +30,7 @@ export function AlertModal() {
   const info = state.currentIpInfo
 
   return (
-    <div style={{ width: 380, fontFamily: 'system-ui, -apple-system, sans-serif', userSelect: 'none' }}>
+    <div style={{ width: '100%', fontFamily: 'system-ui, -apple-system, sans-serif', userSelect: 'none' }}>
       <div
         data-tauri-drag-region
         style={{ background: '#1f2937', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'move' }}

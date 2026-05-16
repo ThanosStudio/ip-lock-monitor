@@ -127,7 +127,7 @@ export function SettingsSection({
         />
         <div style={{ height: 1, background: '#f0f0f0', margin: '2px 0' }} />
         <Toggle
-          label="IP 变更强提醒弹窗"
+          label="强提醒模式"
           description="IP 变更时在屏幕居中弹出警告窗口"
           checked={strongAlertEnabled}
           onChange={handleStrongAlertChange}
