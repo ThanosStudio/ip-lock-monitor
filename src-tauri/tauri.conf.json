@@ -1,8 +1,57 @@
 {
-  "productName": "ip-monitor",
+  "productName": "IP Monitor",
   "version": "0.1.0",
   "identifier": "com.ipmonitor.app",
-  "build": { "frontendDist": "../dist", "devUrl": "http://localhost:1420" },
-  "bundle": { "active": false, "icon": [] },
-  "app": { "windows": [] }
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "IP Monitor",
+        "width": 340,
+        "height": 500,
+        "resizable": false,
+        "decorations": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": true,
+        "alwaysOnTop": false
+      },
+      {
+        "label": "alert",
+        "title": "IP 泄露警告",
+        "width": 380,
+        "height": 520,
+        "resizable": false,
+        "decorations": false,
+        "visible": false,
+        "alwaysOnTop": true,
+        "center": true,
+        "shadow": true,
+        "skipTaskbar": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
 }
