@@ -14,12 +14,13 @@ describe('release script', () => {
 
     expect(script).toContain('npm run build')
     expect(script).toContain('npm run tauri -- build')
+    expect(script).toContain('scripts/verify-macos-dmg.sh')
     expect(script).toContain('shasum -a 256')
     expect(script).toContain('release create')
     expect(script).toContain('git push')
   })
 
-  test('supports dry-run mode and validates the ip-lock-monitor repository target', () => {
+  test('supports dry-run mode, validates the repository target, and requires macOS release signing', () => {
     const script = readRepoFile('scripts/release.sh')
 
     expect(script).toContain('DRY_RUN')
@@ -27,11 +28,29 @@ describe('release script', () => {
     expect(script).toContain('GITHUB_REPOSITORY')
     expect(script).toContain('GIT_REMOTE_URL')
     expect(script).toContain('--remote-url')
+    expect(script).toContain('APPLE_SIGNING_IDENTITY')
+    expect(script).toContain('APPLE_API_ISSUER')
+    expect(script).toContain('APPLE_ID')
+    expect(script).toContain('ALLOW_UNSIGNED_DMG')
   })
 
-  test('is executable', () => {
+  test('release scripts are executable', () => {
     const mode = statSync(`${repoRoot}/scripts/release.sh`).mode
+    const verifyMode = statSync(`${repoRoot}/scripts/verify-macos-dmg.sh`).mode
 
     expect(mode & 0o111).toBeGreaterThan(0)
+    expect(verifyMode & 0o111).toBeGreaterThan(0)
+  })
+})
+
+describe('macOS dmg verification script', () => {
+  test('checks code signing identity and notarization tickets', () => {
+    const script = readRepoFile('scripts/verify-macos-dmg.sh')
+
+    expect(script).toContain('xcrun stapler validate "$dmg_path"')
+    expect(script).toContain('codesign --verify --deep --strict')
+    expect(script).toContain('Signature=adhoc')
+    expect(script).toContain('Authority=Developer ID Application:')
+    expect(script).toContain('TeamIdentifier=')
   })
 })

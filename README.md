@@ -41,23 +41,26 @@ npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-## 发布
+## 安装
 
-发布脚本会执行测试、前端构建、Tauri DMG 打包、生成 sha256 文件、推送当前分支和 tag，并创建 GitHub Release。
+### 未签名 DMG 的本机绕过方式
 
-```bash
-npm run release -- \
-  --repo ThanosStudio/ip-lock-monitor \
-  --remote-url git@github.com:ThanosStudio/ip-lock-monitor.git
-```
-
-Dry-run：
+ `"IP Monitor" is damaged and can't be opened`的解决方案。
 
 ```bash
-DRY_RUN=1 npm run release -- \
-  --repo ThanosStudio/ip-lock-monitor \
-  --remote-url git@github.com:ThanosStudio/ip-lock-monitor.git
+xattr -dr com.apple.quarantine ~/Downloads/IP\ Monitor_0.2.0_aarch64.dmg
 ```
+
+然后重新打开 DMG，把 App 拖到 Applications。
+
+如果已经拖入 Applications 后打开报错，对 `.app` 执行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/IP\ Monitor.app
+open /Applications/IP\ Monitor.app
+```
+
+这个方式只是绕过当前机器上的 Gatekeeper quarantine 校验，由于我没有Apple的开发者证书，暂时只能这样绕过。
 
 ## 技术栈
 

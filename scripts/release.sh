@@ -9,6 +9,12 @@ Usage:
 Environment:
   GITHUB_REPOSITORY  Optional fallback for --repo. Must end with /ip-lock-monitor.
   GIT_REMOTE_URL     Optional git remote URL. Defaults to https://github.com/OWNER/ip-lock-monitor.git.
+  APPLE_SIGNING_IDENTITY  Required for real release. Example: Developer ID Application: Example, Inc. (TEAMID)
+  APPLE_API_ISSUER + APPLE_API_KEY + APPLE_API_KEY_PATH
+                   App Store Connect API credentials for notarization.
+  APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID
+                   Alternative Apple ID notarization credentials.
+  ALLOW_UNSIGNED_DMG=1    Allow local unsigned/ad-hoc DMG build and skip notarization verification.
   DRY_RUN=1          Print commands without running build, git push, or GitHub release.
 
 Examples:
@@ -89,6 +95,7 @@ require_command npm
 require_command shasum
 require_command node
 require_command gh
+require_command xcrun
 
 [[ -n "$repo" ]] || fail "GitHub repository is required. Pass --repo OWNER/ip-lock-monitor or set GITHUB_REPOSITORY."
 [[ "$repo" == */ip-lock-monitor ]] || fail "Refusing to publish to '$repo'. Repository name must be ip-lock-monitor."
@@ -108,6 +115,20 @@ if [[ "${DRY_RUN:-0}" != "1" ]]; then
   git diff --quiet || fail "Working tree has uncommitted changes. Commit or stash before releasing."
   git diff --cached --quiet || fail "Index has staged but uncommitted changes. Commit before releasing."
   gh auth status >/dev/null || fail "GitHub CLI is not authenticated. Run: gh auth login"
+  if [[ "${ALLOW_UNSIGNED_DMG:-0}" != "1" ]]; then
+    [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]] || fail "APPLE_SIGNING_IDENTITY is required for a public macOS DMG release."
+    has_app_store_connect_credentials=0
+    if [[ -n "${APPLE_API_ISSUER:-}" && -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_KEY_PATH:-}" ]]; then
+      has_app_store_connect_credentials=1
+    fi
+    has_apple_id_credentials=0
+    if [[ -n "${APPLE_ID:-}" && -n "${APPLE_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+      has_apple_id_credentials=1
+    fi
+    if [[ "$has_app_store_connect_credentials" != "1" && "$has_apple_id_credentials" != "1" ]]; then
+      fail "Apple notarization credentials are required. Set App Store Connect API env vars or APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID."
+    fi
+  fi
 fi
 
 log "Running tests and building the Tauri dmg"
@@ -120,6 +141,13 @@ if [[ "${DRY_RUN:-0}" == "1" && -z "$dmg_path" ]]; then
   dmg_path="src-tauri/target/release/bundle/dmg/IP Monitor_${version}_aarch64.dmg"
 fi
 [[ -n "$dmg_path" ]] || fail "No dmg found under src-tauri/target/release/bundle/dmg."
+
+if [[ "${DRY_RUN:-0}" != "1" && "${ALLOW_UNSIGNED_DMG:-0}" != "1" ]]; then
+  log "Verifying macOS signing and notarization"
+  run scripts/verify-macos-dmg.sh "$dmg_path"
+elif [[ "${ALLOW_UNSIGNED_DMG:-0}" == "1" ]]; then
+  log "Skipping signing/notarization verification because ALLOW_UNSIGNED_DMG=1"
+fi
 
 sha_path="${dmg_path}.sha256"
 log "Generating sha256 checksum"
