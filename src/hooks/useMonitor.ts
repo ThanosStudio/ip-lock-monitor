@@ -4,6 +4,7 @@ import { sendNotification } from '@tauri-apps/plugin-notification'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getIpInfo } from '../services/ip'
+import { formatAppTime, t } from '../i18n'
 import { loadConfig, saveConfig } from '../store/config'
 import type { AppConfig, MonitorAlertSnapshot, MonitorState, MonitorStatus } from '../types'
 
@@ -33,8 +34,8 @@ async function triggerAlert(
   snapshot: MonitorAlertSnapshot,
 ) {
   await sendNotification({
-    title: '⚠️ IP 变更警告',
-    body: `代理 IP 已从 ${lockedIp} 变更为 ${currentIp}，真实 IP 可能泄露！`,
+    title: t(config.language, 'notificationTitle'),
+    body: t(config.language, 'notificationBody', lockedIp, currentIp),
   })
   await emit('monitor-alert-snapshot', snapshot)
   if (config.strongAlertEnabled) {
@@ -118,7 +119,7 @@ export function useMonitor() {
         }
         await syncTray('alert', false)
         const config = await loadConfig()
-        const detectedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        const detectedAt = formatAppTime(config.language, new Date())
         const startedAt = monitoringStartedAt ?? Date.now()
         await triggerAlert(lockedIp, info.ip, config, {
           lockedIp,
@@ -134,11 +135,12 @@ export function useMonitor() {
       return true
     } catch {
       if (checkCancelledRef.current) return false
+      const config = await loadConfig()
       setState((s) => ({
         ...s,
         isChecking: false,
         countdown: CHECK_INTERVAL_S,
-        error: '网络错误，无法检测 IP',
+        error: t(config.language, 'networkError'),
         checkCount,
         monitoringStartedAt,
       }))
@@ -243,7 +245,8 @@ export function useMonitor() {
         }
       } catch {
         if (!checkCancelledRef.current) {
-          setState((s) => ({ ...s, isChecking: false, error: '网络错误，无法检测 IP' }))
+          const config = await loadConfig()
+          setState((s) => ({ ...s, isChecking: false, error: t(config.language, 'networkError') }))
         }
       }
     }

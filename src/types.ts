@@ -12,10 +12,13 @@ export interface IpInfo {
   timezone: string
 }
 
+export type AppLanguage = 'en' | 'zh'
+
 export interface AppConfig {
   lockedIp: string
   launchAtLogin: boolean
   strongAlertEnabled: boolean
+  language: AppLanguage
 }
 
 export type MonitorStatus = 'idle' | 'safe' | 'alert'

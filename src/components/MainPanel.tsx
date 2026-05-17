@@ -1,11 +1,13 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { LogicalSize } from '@tauri-apps/api/dpi'
+import { listen } from '@tauri-apps/api/event'
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Shield, ShieldCheck, ShieldAlert, Pin, RefreshCw, Play, Square, RotateCcw, LogOut } from 'lucide-react'
-import type { AppConfig } from '../types'
-import { loadConfig, isValidIp } from '../store/config'
+import type { AppConfig, AppLanguage } from '../types'
+import { DEFAULT_CONFIG, loadConfig, isValidIp } from '../store/config'
 import { useMonitor } from '../hooks/useMonitor'
+import { formatAppTime, getStatusTitle, t } from '../i18n'
 import { CountryFlag } from './CountryFlag'
 import { IpInfoGrid } from './IpInfoGrid'
 import { IpComparison } from './IpComparison'
@@ -21,19 +23,16 @@ const BANNER_CFG = {
     gradient: 'linear-gradient(135deg, #1e293b, #0f172a)',
     shieldBg: 'rgba(255,255,255,0.08)',
     shieldGlow: 'none',
-    title: 'IP 监控',
   },
   safe: {
     gradient: 'linear-gradient(135deg, #1e293b, #0f172a)',
     shieldBg: 'linear-gradient(135deg, #10b981, #059669)',
     shieldGlow: '0 2px 10px rgba(16,185,129,0.45)',
-    title: 'IP 安全',
   },
   alert: {
     gradient: 'linear-gradient(135deg, #450a0a, #7f1d1d)',
     shieldBg: 'linear-gradient(135deg, #dc2626, #b91c1c)',
     shieldGlow: '0 2px 10px rgba(220,38,38,0.45)',
-    title: 'IP 变更',
   },
 }
 
@@ -45,7 +44,7 @@ function BannerShield({ status }: { status: 'idle' | 'safe' | 'alert' }) {
 
 export function MainPanel() {
   const { state, startMonitoring, stopMonitoring, refreshCheck } = useMonitor()
-  const [config, setConfig] = useState<AppConfig>({ lockedIp: '', launchAtLogin: false, strongAlertEnabled: true })
+  const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG)
   const [lockedIpInput, setLockedIpInput] = useState('')
   const [lockedIpError, setLockedIpError] = useState(false)
   const [detectedAt, setDetectedAt] = useState('')
@@ -54,6 +53,16 @@ export function MainPanel() {
 
   useEffect(() => {
     loadConfig().then((c) => { setConfig(c); setLockedIpInput(c.lockedIp) })
+  }, [])
+
+  useEffect(() => {
+    let cleanup: (() => void) | null = null
+    listen<AppLanguage>('language-changed', ({ payload }) => {
+      setConfig((c) => ({ ...c, language: payload }))
+    }).then((unlisten) => {
+      cleanup = unlisten
+    })
+    return () => { cleanup?.() }
   }, [])
 
   useEffect(() => {
@@ -107,8 +116,8 @@ export function MainPanel() {
 
   useEffect(() => {
     if (state.status === 'alert')
-      setDetectedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
-  }, [state.status])
+      setDetectedAt(formatAppTime(config.language, new Date()))
+  }, [config.language, state.status])
 
   const handleStart = () => {
     if (!isValidIp(lockedIpInput)) { setLockedIpError(true); return }
@@ -123,6 +132,7 @@ export function MainPanel() {
   const isMonitoring = state.status !== 'idle'
   const cfg = BANNER_CFG[state.status]
   const info = state.currentIpInfo
+  const language = config.language
 
   return (
     <div
@@ -139,12 +149,12 @@ export function MainPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-bold text-slate-100 tracking-[-0.02em] leading-none">
-            {cfg.title}
+            {getStatusTitle(language, state.status)}
           </div>
           <div className="mt-0.5 text-[9px] text-white/40">
-            {state.status === 'idle' && '配置锁定 IP，开始持续监控'}
-            {state.status === 'safe' && (state.isChecking ? '正在检查...' : `下次检查 ${state.countdown}s 后`)}
-            {state.status === 'alert' && `检测于 ${detectedAt}`}
+            {state.status === 'idle' && t(language, 'subtitleIdle')}
+            {state.status === 'safe' && (state.isChecking ? t(language, 'checking') : t(language, 'nextCheck', state.countdown))}
+            {state.status === 'alert' && t(language, 'detectedAt', detectedAt)}
           </div>
         </div>
         <AnimatePresence>
@@ -156,7 +166,7 @@ export function MainPanel() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="text-[9px] font-bold text-emerald-300 bg-emerald-950/30 border border-emerald-800/40 rounded-full px-2 py-0.5 whitespace-nowrap"
             >
-              匹配 ✓
+              {t(language, 'matched')}
             </motion.span>
           )}
           {state.status === 'alert' && (
@@ -167,7 +177,7 @@ export function MainPanel() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="text-[9px] font-bold text-red-300 bg-red-950/30 border border-red-800/40 rounded-full px-2 py-0.5 whitespace-nowrap"
             >
-              变更!
+              {t(language, 'changed')}
             </motion.span>
           )}
         </AnimatePresence>
@@ -189,7 +199,9 @@ export function MainPanel() {
             }`}
           >
             <div className="flex items-start justify-between mb-1">
-              <span className="text-[8px] text-slate-400 uppercase tracking-[0.07em] font-semibold pt-px">当前 IP</span>
+              <span className="text-[8px] text-slate-400 uppercase tracking-[0.07em] font-semibold pt-px">
+                {t(language, 'currentIp')}
+              </span>
               <div className="flex items-center gap-1">
                 {!isMonitoring && (
                   <button
@@ -197,7 +209,7 @@ export function MainPanel() {
                     className="flex items-center gap-[3px] h-[20px] px-[7px] bg-blue-50 text-blue-500 border border-blue-200 rounded-[6px] text-[9px] font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
                   >
                     <Pin size={9} strokeWidth={2.5} />
-                    填入
+                    {t(language, 'fill')}
                   </button>
                 )}
                 <button
@@ -212,7 +224,7 @@ export function MainPanel() {
                   >
                     <RefreshCw size={9} strokeWidth={2.5} />
                   </motion.span>
-                  刷新
+                  {t(language, 'refresh')}
                 </button>
               </div>
             </div>
@@ -236,7 +248,7 @@ export function MainPanel() {
         {/* Loading */}
         {!info && !state.error && (
           <div className="text-center py-2.5 text-[10px] text-slate-400">
-            正在检测当前 IP…
+            {t(language, 'loadingCurrentIp')}
           </div>
         )}
 
@@ -249,13 +261,13 @@ export function MainPanel() {
 
         {/* Alert: IP comparison */}
         {state.status === 'alert' && info && (
-          <IpComparison lockedIp={state.lockedIp} currentIp={info.ip} detectedAt={detectedAt} />
+          <IpComparison lockedIp={state.lockedIp} currentIp={info.ip} detectedAt={detectedAt} language={language} />
         )}
 
         {/* Info grid */}
         {info && (
           <div className="mb-2">
-            <IpInfoGrid info={info} isAlert={state.status === 'alert'} />
+            <IpInfoGrid info={info} isAlert={state.status === 'alert'} language={language} />
           </div>
         )}
 
@@ -266,8 +278,10 @@ export function MainPanel() {
             isMonitoring={isMonitoring}
             launchAtLogin={config.launchAtLogin}
             strongAlertEnabled={config.strongAlertEnabled}
+            language={language}
             onLaunchAtLoginChange={(v) => setConfig((c) => ({ ...c, launchAtLogin: v }))}
             onStrongAlertChange={(v) => setConfig((c) => ({ ...c, strongAlertEnabled: v }))}
+            onLanguageChange={(v) => setConfig((c) => ({ ...c, language: v }))}
             lockedIpInput={lockedIpInput}
             onLockedIpInputChange={(v) => { setLockedIpInput(v); setLockedIpError(false) }}
             onLockedIpConfirm={handleStart}
@@ -285,7 +299,7 @@ export function MainPanel() {
               className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(5,150,105,0.35)] hover:bg-emerald-700 transition-colors cursor-pointer"
             >
               <Play size={12} strokeWidth={2.5} />
-              开始监控
+              {t(language, 'startMonitoring')}
             </motion.button>
           )}
           {state.status === 'safe' && (
@@ -296,7 +310,7 @@ export function MainPanel() {
               className="flex-1 flex items-center justify-center gap-1.5 bg-red-500 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(239,68,68,0.3)] hover:bg-red-600 transition-colors cursor-pointer"
             >
               <Square size={12} strokeWidth={2.5} />
-              停止监控
+              {t(language, 'stopMonitoring')}
             </motion.button>
           )}
           {state.status === 'alert' && (
@@ -307,7 +321,7 @@ export function MainPanel() {
               className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white rounded-lg py-2 text-[12px] font-bold shadow-[0_2px_8px_rgba(220,38,38,0.3)] hover:bg-red-700 transition-colors cursor-pointer"
             >
               <RotateCcw size={12} strokeWidth={2.5} />
-              重置监控
+              {t(language, 'resetMonitoring')}
             </motion.button>
           )}
           <motion.button
@@ -317,7 +331,7 @@ export function MainPanel() {
             className="flex items-center justify-center gap-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg px-2.5 py-2 text-[10px] hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <LogOut size={11} strokeWidth={2.5} />
-            退出
+            {t(language, 'quit')}
           </motion.button>
         </div>
 

@@ -56,8 +56,8 @@ describe('alert window layout', () => {
   test('shows guard metrics in the alert banner', () => {
     const alertModal = readRepoFile('src/components/AlertModal.tsx')
 
-    expect(alertModal).toContain('已检查')
-    expect(alertModal).toContain('护航')
+    expect(alertModal).toContain("t(language, 'checked')")
+    expect(alertModal).toContain("t(language, 'guarded')")
   })
 
   test('renders alert details from the alert snapshot instead of the alert window local monitor state', () => {
@@ -69,7 +69,7 @@ describe('alert window layout', () => {
     expect(useMonitor).toContain('currentIpInfo: info')
     expect(alertModal).toContain('const alertInfo = alertSnapshot?.currentIpInfo ?? state.currentIpInfo')
     expect(alertModal).toContain('const alertLockedIp = alertSnapshot?.lockedIp ?? state.lockedIp')
-    expect(alertModal).toContain('IpComparison lockedIp={alertLockedIp} currentIp={alertInfo.ip}')
+    expect(alertModal).toContain('IpComparison lockedIp={alertLockedIp} currentIp={alertInfo.ip} language={language}')
   })
 
   test('does not duplicate the title bar close action in the alert footer', () => {

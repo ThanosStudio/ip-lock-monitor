@@ -1,6 +1,6 @@
 {
   "productName": "IP Monitor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identifier": "com.thanos.ip.monitor",
   "build": {
     "frontendDist": "../dist",

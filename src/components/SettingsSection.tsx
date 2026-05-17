@@ -1,9 +1,12 @@
 import { enable, disable } from '@tauri-apps/plugin-autostart'
+import { emit } from '@tauri-apps/api/event'
 import { useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Monitor, Bell } from 'lucide-react'
+import { Languages, Lock, Monitor, Bell } from 'lucide-react'
 import { saveConfig } from '../store/config'
+import { t } from '../i18n'
+import type { AppLanguage } from '../types'
 
 interface ToggleProps {
   label: string
@@ -45,8 +48,10 @@ interface Props {
   isMonitoring: boolean
   launchAtLogin: boolean
   strongAlertEnabled: boolean
+  language: AppLanguage
   onLaunchAtLoginChange: (v: boolean) => void
   onStrongAlertChange: (v: boolean) => void
+  onLanguageChange: (v: AppLanguage) => void
   lockedIpInput?: string
   onLockedIpInputChange?: (v: string) => void
   onLockedIpConfirm?: () => void
@@ -58,8 +63,10 @@ export function SettingsSection({
   isMonitoring,
   launchAtLogin,
   strongAlertEnabled,
+  language,
   onLaunchAtLoginChange,
   onStrongAlertChange,
+  onLanguageChange,
   lockedIpInput,
   onLockedIpInputChange,
   onLockedIpConfirm,
@@ -87,15 +94,24 @@ export function SettingsSection({
     [onStrongAlertChange],
   )
 
+  const handleLanguageChange = useCallback(
+    async (nextLanguage: AppLanguage) => {
+      await saveConfig({ language: nextLanguage })
+      onLanguageChange(nextLanguage)
+      await emit('language-changed', nextLanguage)
+    },
+    [onLanguageChange],
+  )
+
   return (
     <div>
       {/* Locked IP */}
       <div className="mb-2">
         <div className="flex items-center gap-1 text-[9.5px] font-semibold text-slate-500 mb-1.5">
           <Lock size={10} strokeWidth={2.5} />
-          锁定 IP
+          {t(language, 'lockedIp')}
           <span className="font-normal text-slate-400">
-            {isMonitoring ? '（监控中不可修改）' : '（回车确认）'}
+            {isMonitoring ? t(language, 'lockedIpMonitoringHint') : t(language, 'lockedIpEnterHint')}
           </span>
         </div>
         {isMonitoring ? (
@@ -107,7 +123,7 @@ export function SettingsSection({
             value={lockedIpInput ?? ''}
             onChange={(e) => onLockedIpInputChange?.(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onLockedIpConfirm?.()}
-            placeholder="输入要监控的 IP 地址..."
+            placeholder={t(language, 'lockedIpPlaceholder')}
             className={`w-full border rounded-lg px-2.5 py-[5px] text-[11px] font-mono outline-none focus:ring-2 transition-all ${
               lockedIpError
                 ? 'bg-red-50 border-red-400 text-red-900 focus:ring-red-300'
@@ -119,17 +135,42 @@ export function SettingsSection({
 
       {/* Toggles */}
       <div className="border-t border-slate-100 pt-1">
+        <div className="flex items-center justify-between py-[5px]">
+          <div className="flex items-center gap-2">
+            <div className="w-[18px] h-[18px] rounded-[5px] bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+              <Languages size={10} strokeWidth={2.5} className="text-slate-500" />
+            </div>
+            <div>
+              <div className="text-[11px] font-medium text-gray-700">{t(language, 'language')}</div>
+              <div className="text-[8.5px] text-slate-400 mt-px">{t(language, 'languageDesc')}</div>
+            </div>
+          </div>
+          <div className="flex h-[20px] rounded-[6px] border border-slate-200 bg-slate-50 p-px">
+            {(['en', 'zh'] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => handleLanguageChange(option)}
+                className={`px-1.5 rounded-[5px] text-[8.5px] font-semibold transition-colors cursor-pointer ${
+                  language === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {option === 'en' ? t(language, 'english') : t(language, 'chinese')}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-px bg-slate-100" />
         <Toggle
-          label="开机自动启动"
-          description="随系统启动常驻菜单栏"
+          label={t(language, 'launchAtLogin')}
+          description={t(language, 'launchAtLoginDesc')}
           icon={<Monitor size={10} strokeWidth={2.5} className="text-slate-500" />}
           checked={launchAtLogin}
           onChange={handleLaunchAtLoginChange}
         />
         <div className="h-px bg-slate-100" />
         <Toggle
-          label="强提醒模式"
-          description="IP 变更时在屏幕居中弹出警告窗口"
+          label={t(language, 'strongAlert')}
+          description={t(language, 'strongAlertDesc')}
           icon={<Bell size={10} strokeWidth={2.5} className="text-slate-500" />}
           checked={strongAlertEnabled}
           onChange={handleStrongAlertChange}

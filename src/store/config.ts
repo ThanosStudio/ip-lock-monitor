@@ -1,10 +1,11 @@
 import { load } from '@tauri-apps/plugin-store'
-import type { AppConfig } from '../types'
+import type { AppConfig, AppLanguage } from '../types'
 
 export const DEFAULT_CONFIG: AppConfig = {
   lockedIp: '',
   launchAtLogin: false,
   strongAlertEnabled: true,
+  language: 'en',
 }
 
 export function isValidIp(ip: string): boolean {
@@ -21,6 +22,10 @@ async function getStore() {
   return _store
 }
 
+function normalizeLanguage(value: unknown): AppLanguage {
+  return value === 'zh' ? 'zh' : DEFAULT_CONFIG.language
+}
+
 export async function loadConfig(): Promise<AppConfig> {
   try {
     const store = await getStore()
@@ -28,6 +33,7 @@ export async function loadConfig(): Promise<AppConfig> {
       lockedIp: (await store.get<string>('lockedIp')) ?? DEFAULT_CONFIG.lockedIp,
       launchAtLogin: (await store.get<boolean>('launchAtLogin')) ?? DEFAULT_CONFIG.launchAtLogin,
       strongAlertEnabled: (await store.get<boolean>('strongAlertEnabled')) ?? DEFAULT_CONFIG.strongAlertEnabled,
+      language: normalizeLanguage(await store.get<string>('language')),
     }
   } catch {
     return { ...DEFAULT_CONFIG }

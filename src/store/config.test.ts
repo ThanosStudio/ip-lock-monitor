@@ -26,5 +26,6 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.lockedIp).toBe('')
     expect(DEFAULT_CONFIG.launchAtLogin).toBe(false)
     expect(DEFAULT_CONFIG.strongAlertEnabled).toBe(true)
+    expect(DEFAULT_CONFIG.language).toBe('en')
   })
 })

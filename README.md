@@ -1,38 +1,42 @@
 # IP Monitor
 
-IP Monitor 是一个独立的 macOS 菜单栏应用，用来持续检查当前出口 IP 是否仍然等于你锁定的代理 IP。它适合在使用代理、VPN、远程办公网络或需要避免真实 IP 暴露的场景中作为本地提醒工具。
+IP Monitor is a standalone macOS menu bar app that continuously checks whether your current outbound IP still matches the proxy IP you locked. It is designed as a local reminder tool for proxy, VPN, remote-work network, or real-IP leak prevention workflows.
 
-## 功能亮点
+## Features
 
-- 菜单栏常驻监控：通过托盘图标显示空闲、安全、告警三种状态。
-- 锁定出口 IP：一键把当前 IP 填入锁定值，开始持续监控。
-- 周期检查：默认每 60 秒检查一次当前公网 IP。
-- 强提醒弹窗：发现 IP 变化后弹出置顶告警窗口，并停止后续轮询。
-- 告警信息对比：展示锁定 IP、当前 IP、国家/地区、城市、ASN 和运营商信息。
-- 监控统计：告警窗口顶部显示本次监控已检查次数和已护航时长。
-- 开机启动：可在设置中开启 macOS 登录后自动启动。
+- Menu bar monitoring: shows idle, safe, and alert states through the tray icon.
+- Locked outbound IP: fill the locked value from the current IP with one click, then start monitoring.
+- Periodic checks: checks the current public IP every 60 seconds by default.
+- Strong alert window: shows an always-on-top alert when the IP changes, then stops further polling.
+- Alert comparison: displays the locked IP, current IP, country or region, city, ASN, and provider information.
+- Monitoring stats: shows the check count and protected duration at the top of the alert window.
+- Launch at login: can be enabled in settings to start automatically after macOS login.
+- Multilingual UI: supports English and Chinese, with English as the default.
 
-## 截图说明
+## Screenshots
 
-应用包含两个核心界面：
+The app has two main interfaces.
 
-- 菜单栏面板：配置锁定 IP、查看当前 IP、控制监控开关。
+### Menu Bar Panel
+
+Configure the locked IP, view the current IP, and control monitoring.
 
 ![](./screenshots/main.png)
 
-- 告警弹窗：当出口 IP 变化时置顶提示，并给出 IP 差异和监控统计。
+### Alert Window
+
+Shows an always-on-top warning when the outbound IP changes, including the IP difference and monitoring stats.
 
 ![](./screenshots/dialog.png)
 
-
-## 开发
+## Development
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-常用检查：
+Common checks:
 
 ```bash
 npm test -- --run
@@ -41,28 +45,28 @@ npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-## 安装
+## Installation
 
-### 未签名 DMG 的本机绕过方式
+### Local Bypass for an Unsigned DMG
 
- `"IP Monitor" is damaged and can't be opened`的解决方案。
+If macOS shows `"IP Monitor" is damaged and can't be opened`, remove the quarantine attribute from the DMG:
 
 ```bash
 xattr -dr com.apple.quarantine ~/Downloads/IP\ Monitor_0.2.0_aarch64.dmg
 ```
 
-然后重新打开 DMG，把 App 拖到 Applications。
+Then reopen the DMG and drag the app into Applications.
 
-如果已经拖入 Applications 后打开报错，对 `.app` 执行：
+If the app has already been moved into Applications and still fails to open, run:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/IP\ Monitor.app
 open /Applications/IP\ Monitor.app
 ```
 
-这个方式只是绕过当前机器上的 Gatekeeper quarantine 校验，由于我没有Apple的开发者证书，暂时只能这样绕过。
+This only bypasses the Gatekeeper quarantine check on the current machine. Because the app is not signed with an Apple Developer certificate, this local bypass is currently required.
 
-## 技术栈
+## Tech Stack
 
 - Tauri v2
 - React 18
@@ -70,6 +74,6 @@ open /Applications/IP\ Monitor.app
 - Vite
 - Tailwind CSS utility classes
 
-## 许可
+## License
 
 MIT License. See [LICENSE](LICENSE).
