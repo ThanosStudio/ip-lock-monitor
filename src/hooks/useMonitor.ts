@@ -1,16 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
-import { LogicalSize } from '@tauri-apps/api/dpi'
-import { listen } from '@tauri-apps/api/event'
+import { emit, listen } from '@tauri-apps/api/event'
 import { sendNotification } from '@tauri-apps/plugin-notification'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getIpInfo } from '../services/ip'
 import { loadConfig, saveConfig } from '../store/config'
-import type { AppConfig, MonitorState, MonitorStatus } from '../types'
+import type { AppConfig, MonitorAlertSnapshot, MonitorState, MonitorStatus } from '../types'
 
 const CHECK_INTERVAL_S = 60
-const ALERT_WINDOW_WIDTH = 380
-const ALERT_WINDOW_HEIGHT = 540
 
 const INITIAL_STATE: MonitorState = {
   status: 'idle',
@@ -19,6 +16,8 @@ const INITIAL_STATE: MonitorState = {
   countdown: CHECK_INTERVAL_S,
   isChecking: false,
   error: null,
+  checkCount: 0,
+  monitoringStartedAt: null,
 }
 
 async function syncTray(status: MonitorStatus, isMonitoring: boolean) {
@@ -27,20 +26,21 @@ async function syncTray(status: MonitorStatus, isMonitoring: boolean) {
   await invoke('update_tray_menu', { isMonitoring })
 }
 
-async function triggerAlert(lockedIp: string, currentIp: string, config: AppConfig) {
+async function triggerAlert(
+  lockedIp: string,
+  currentIp: string,
+  config: AppConfig,
+  snapshot: MonitorAlertSnapshot,
+) {
   await sendNotification({
     title: '⚠️ IP 变更警告',
     body: `代理 IP 已从 ${lockedIp} 变更为 ${currentIp}，真实 IP 可能泄露！`,
   })
+  await emit('monitor-alert-snapshot', snapshot)
   if (config.strongAlertEnabled) {
     const alertWin = await WebviewWindow.getByLabel('alert')
     if (alertWin) {
       const visible = await alertWin.isVisible()
-      try {
-        await alertWin.setSize(new LogicalSize(ALERT_WINDOW_WIDTH, ALERT_WINDOW_HEIGHT))
-      } catch (error) {
-        console.warn('Failed to size alert window before showing it.', error)
-      }
       if (!visible) {
         try {
           await alertWin.center()
@@ -60,6 +60,10 @@ export function useMonitor() {
   const [state, setState] = useState<MonitorState>(INITIAL_STATE)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const stateRef = useRef<MonitorState>(INITIAL_STATE)
+  const metricsRef = useRef({
+    checkCount: 0,
+    monitoringStartedAt: null as number | null,
+  })
   // Signals in-flight doCheck to discard its result (set by stopMonitoring)
   const checkCancelledRef = useRef(false)
 
@@ -79,7 +83,17 @@ export function useMonitor() {
   // Returns true if monitoring should continue, false if alert triggered or cancelled
   const doCheck = useCallback(async (lockedIpOverride?: string): Promise<boolean> => {
     checkCancelledRef.current = false
-    setState((s) => ({ ...s, isChecking: true, countdown: 0, error: null }))
+    metricsRef.current.checkCount += 1
+    const checkCount = metricsRef.current.checkCount
+    const monitoringStartedAt = metricsRef.current.monitoringStartedAt
+    setState((s) => ({
+      ...s,
+      isChecking: true,
+      countdown: 0,
+      error: null,
+      checkCount,
+      monitoringStartedAt,
+    }))
     try {
       const info = await getIpInfo()
       if (checkCancelledRef.current) return false
@@ -93,6 +107,8 @@ export function useMonitor() {
         isChecking: false,
         countdown: CHECK_INTERVAL_S,
         error: null,
+        checkCount,
+        monitoringStartedAt,
       }))
       if (!isMatch) {
         // Stop further polling immediately
@@ -102,7 +118,16 @@ export function useMonitor() {
         }
         await syncTray('alert', false)
         const config = await loadConfig()
-        await triggerAlert(lockedIp, info.ip, config)
+        const detectedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        const startedAt = monitoringStartedAt ?? Date.now()
+        await triggerAlert(lockedIp, info.ip, config, {
+          lockedIp,
+          currentIp: info.ip,
+          currentIpInfo: info,
+          checkCount,
+          guardDurationMs: Date.now() - startedAt,
+          detectedAt,
+        })
         return false
       }
       await syncTray('safe', true)
@@ -114,6 +139,8 @@ export function useMonitor() {
         isChecking: false,
         countdown: CHECK_INTERVAL_S,
         error: '网络错误，无法检测 IP',
+        checkCount,
+        monitoringStartedAt,
       }))
       return true // keep interval running so it retries
     }
@@ -122,6 +149,8 @@ export function useMonitor() {
   const startMonitoring = useCallback(
     async (lockedIp: string) => {
       checkCancelledRef.current = false
+      const monitoringStartedAt = Date.now()
+      metricsRef.current = { checkCount: 0, monitoringStartedAt }
       await saveConfig({ lockedIp })
       setState((s) => ({
         ...s,
@@ -129,6 +158,8 @@ export function useMonitor() {
         status: 'safe',
         countdown: CHECK_INTERVAL_S,
         error: null,
+        checkCount: 0,
+        monitoringStartedAt,
       }))
       await syncTray('safe', true)
 
@@ -158,6 +189,7 @@ export function useMonitor() {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
+    metricsRef.current = { checkCount: 0, monitoringStartedAt: null }
     // Preserve currentIpInfo and lockedIp so the panel doesn't show the loading spinner
     setState((s) => ({
       ...INITIAL_STATE,

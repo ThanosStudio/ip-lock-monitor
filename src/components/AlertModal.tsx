@@ -1,19 +1,83 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { emit } from '@tauri-apps/api/event'
+import { LogicalSize } from '@tauri-apps/api/dpi'
+import { emit, listen } from '@tauri-apps/api/event'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, ShieldAlert, X, RotateCcw } from 'lucide-react'
 import { useMonitor } from '../hooks/useMonitor'
+import { formatGuardDuration } from '../hooks/monitorStats'
 import { CountryFlag } from './CountryFlag'
 import { IpInfoGrid } from './IpInfoGrid'
 import { IpComparison } from './IpComparison'
+import type { MonitorAlertSnapshot } from '../types'
+
+const ALERT_WINDOW_WIDTH = 380
+const ALERT_WINDOW_MIN_HEIGHT = 540
+const ALERT_WINDOW_MAX_SCREEN_PADDING = 48
+const ALERT_BODY_VERTICAL_PADDING = 24
 
 export function AlertModal() {
   const { state } = useMonitor()
   const win = useRef(getCurrentWebviewWindow())
+  const titleBarRef = useRef<HTMLDivElement>(null)
+  const bannerRef = useRef<HTMLDivElement>(null)
+  const bodyContentRef = useRef<HTMLDivElement>(null)
   const [detectedAt, setDetectedAt] = useState(
     new Date().toLocaleTimeString('zh-CN', { hour12: false }),
   )
+  const [alertSnapshot, setAlertSnapshot] = useState<MonitorAlertSnapshot | null>(null)
+  const alertInfo = alertSnapshot?.currentIpInfo ?? state.currentIpInfo
+  const alertLockedIp = alertSnapshot?.lockedIp ?? state.lockedIp
+
+  useEffect(() => {
+    let cleanup: (() => void) | null = null
+    listen<MonitorAlertSnapshot>('monitor-alert-snapshot', ({ payload }) => {
+      setAlertSnapshot(payload)
+      setDetectedAt(payload.detectedAt)
+    }).then((unlisten) => {
+      cleanup = unlisten
+    })
+    return () => { cleanup?.() }
+  }, [])
+
+  useEffect(() => {
+    let frameId: number | null = null
+
+    const resizeToContent = () => {
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        frameId = null
+        const titleBarHeight = titleBarRef.current?.offsetHeight ?? 0
+        const bannerHeight = bannerRef.current?.offsetHeight ?? 0
+        const bodyContentHeight = bodyContentRef.current?.scrollHeight ?? 0
+        if (!titleBarHeight || !bannerHeight || !bodyContentHeight) return
+
+        const maxHeight = Math.max(
+          ALERT_WINDOW_MIN_HEIGHT,
+          window.screen.availHeight - ALERT_WINDOW_MAX_SCREEN_PADDING,
+        )
+        const contentHeight = titleBarHeight + bannerHeight + bodyContentHeight + ALERT_BODY_VERTICAL_PADDING
+        const nextHeight = Math.min(Math.max(Math.ceil(contentHeight), ALERT_WINDOW_MIN_HEIGHT), maxHeight)
+
+        win.current.setSize(new LogicalSize(ALERT_WINDOW_WIDTH, nextHeight)).catch((error) => {
+          console.warn('Failed to resize alert window to fit content.', error)
+        })
+      })
+    }
+
+    const observer = new ResizeObserver(resizeToContent)
+    if (titleBarRef.current) observer.observe(titleBarRef.current)
+    if (bannerRef.current) observer.observe(bannerRef.current)
+    if (bodyContentRef.current) observer.observe(bodyContentRef.current)
+    window.addEventListener('resize', resizeToContent)
+    resizeToContent()
+
+    return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      observer.disconnect()
+      window.removeEventListener('resize', resizeToContent)
+    }
+  }, [alertSnapshot, alertInfo])
 
   useEffect(() => {
     if (state.status === 'alert') {
@@ -32,7 +96,9 @@ export function AlertModal() {
     await handleClose()
   }
 
-  const info = state.currentIpInfo
+  const checkCount = alertSnapshot?.checkCount ?? state.checkCount
+  const guardDurationMs = alertSnapshot?.guardDurationMs
+    ?? (state.monitoringStartedAt ? Date.now() - state.monitoringStartedAt : 0)
 
   return (
     <motion.div
@@ -44,6 +110,7 @@ export function AlertModal() {
     >
       {/* Title bar */}
       <div
+        ref={titleBarRef}
         onMouseDown={startDrag}
         className="bg-gray-800 px-3 py-2 flex items-center justify-between cursor-move"
       >
@@ -62,6 +129,7 @@ export function AlertModal() {
 
       {/* Red banner */}
       <div
+        ref={bannerRef}
         onMouseDown={startDrag}
         className="px-4 py-4 text-center cursor-move"
         style={{ background: 'linear-gradient(135deg, #7f1d1d, #dc2626)' }}
@@ -71,52 +139,60 @@ export function AlertModal() {
         </div>
         <div className="text-[15px] font-extrabold text-white mb-0.5">IP 已变更！可能泄露</div>
         <div className="text-[10px] text-white/70">检测时间：{detectedAt}</div>
+        <div className="mt-2 grid grid-cols-2 gap-1.5 text-left">
+          <div className="rounded-[7px] bg-white/10 border border-white/10 px-2 py-1.5">
+            <div className="text-[8px] text-white/55">已检查</div>
+            <div className="mt-0.5 text-[12px] font-extrabold text-white">{checkCount} 次</div>
+          </div>
+          <div className="rounded-[7px] bg-white/10 border border-white/10 px-2 py-1.5">
+            <div className="text-[8px] text-white/55">已护航</div>
+            <div className="mt-0.5 text-[12px] font-extrabold text-white">
+              {formatGuardDuration(guardDurationMs)}
+            </div>
+          </div>
+        </div>
         <div className="mt-2 text-[9px] text-white/55 bg-black/20 rounded-[5px] px-2.5 py-[3px] inline-block">
           检测已停止，请处理后重新启动监控
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-3 bg-red-50">
-        {info && (
-          <>
-            <IpComparison lockedIp={state.lockedIp} currentIp={info.ip} />
+      <div className="flex-1 overflow-y-auto scrollbar-none px-3.5 py-3 bg-red-50">
+        <div ref={bodyContentRef}>
+          {alertInfo && (
+            <>
+              <IpComparison lockedIp={alertLockedIp} currentIp={alertInfo.ip} />
 
-            <div className="flex items-center gap-2 mb-2">
-              <CountryFlag countryCode={info.country_code} size={20} />
-              <div>
-                <div className="font-bold text-[12px] text-gray-900">{info.country || 'Unknown'}</div>
-                <div className="text-[10px] text-slate-500">
-                  {[info.city, info.region].filter(Boolean).join(', ')}
-                  {info.asn ? ` · AS${info.asn}` : ''}
+              <div className="flex items-center gap-2 mb-2">
+                <CountryFlag countryCode={alertInfo.country_code} size={20} />
+                <div>
+                  <div className="font-bold text-[12px] text-gray-900">{alertInfo.country || 'Unknown'}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {[alertInfo.city, alertInfo.region].filter(Boolean).join(', ')}
+                    {alertInfo.asn ? ` · AS${alertInfo.asn}` : ''}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mb-2.5">
-              <IpInfoGrid info={info} isAlert />
-            </div>
-          </>
-        )}
+              <div className="mb-2.5">
+                <IpInfoGrid info={alertInfo} isAlert />
+              </div>
+            </>
+          )}
 
-        <div className="flex gap-1.5">
-          <button
-            onClick={handleStopAndClose}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white border-none rounded-lg py-2.5 text-[12px] font-bold hover:bg-red-700 transition-colors cursor-pointer"
-          >
-            <RotateCcw size={12} strokeWidth={2.5} />
-            重置监控并关闭
-          </button>
-          <button
-            onClick={handleClose}
-            className="bg-slate-100 text-gray-700 border-none rounded-lg px-3 py-2.5 text-[11px] hover:bg-slate-200 transition-colors cursor-pointer"
-          >
-            关闭
-          </button>
-        </div>
+          <div className="flex">
+            <button
+              onClick={handleStopAndClose}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white border-none rounded-lg py-2.5 text-[12px] font-bold hover:bg-red-700 transition-colors cursor-pointer"
+            >
+              <RotateCcw size={12} strokeWidth={2.5} />
+              重置监控并关闭
+            </button>
+          </div>
 
-        <div className="mt-1.5 text-center text-[9px] text-slate-400">
-          可在设置中关闭强提醒弹窗
+          <div className="mt-1.5 text-center text-[9px] text-slate-400">
+            可在设置中关闭强提醒弹窗
+          </div>
         </div>
       </div>
     </motion.div>

@@ -1,7 +1,7 @@
 {
   "productName": "IP Monitor",
   "version": "0.1.0",
-  "identifier": "com.ipmonitor.app",
+  "identifier": "com.thanos.ip.monitor",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",

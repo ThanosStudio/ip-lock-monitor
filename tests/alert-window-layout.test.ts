@@ -44,11 +44,38 @@ describe('alert window layout', () => {
     expect(styles).toMatch(/#root\s*\{[^}]*overflow:\s*hidden;/s)
   })
 
-  test('keeps alert content inside a rounded shell with scroll fallback', () => {
+  test('resizes the alert window to fit its content instead of showing a scrollbar', () => {
     const alertModal = readRepoFile('src/components/AlertModal.tsx')
 
     expect(alertModal).toContain('rounded-xl overflow-hidden bg-red-50')
-    expect(alertModal).toContain('flex-1 overflow-y-auto')
+    expect(alertModal).toContain('ResizeObserver')
+    expect(alertModal).toContain('setSize(new LogicalSize(ALERT_WINDOW_WIDTH, nextHeight))')
+    expect(alertModal).toContain('scrollbar-none')
+  })
+
+  test('shows guard metrics in the alert banner', () => {
+    const alertModal = readRepoFile('src/components/AlertModal.tsx')
+
+    expect(alertModal).toContain('已检查')
+    expect(alertModal).toContain('护航')
+  })
+
+  test('renders alert details from the alert snapshot instead of the alert window local monitor state', () => {
+    const types = readRepoFile('src/types.ts')
+    const useMonitor = readRepoFile('src/hooks/useMonitor.ts')
+    const alertModal = readRepoFile('src/components/AlertModal.tsx')
+
+    expect(types).toContain('currentIpInfo: IpInfo')
+    expect(useMonitor).toContain('currentIpInfo: info')
+    expect(alertModal).toContain('const alertInfo = alertSnapshot?.currentIpInfo ?? state.currentIpInfo')
+    expect(alertModal).toContain('const alertLockedIp = alertSnapshot?.lockedIp ?? state.lockedIp')
+    expect(alertModal).toContain('IpComparison lockedIp={alertLockedIp} currentIp={alertInfo.ip}')
+  })
+
+  test('does not duplicate the title bar close action in the alert footer', () => {
+    const alertModal = readRepoFile('src/components/AlertModal.tsx')
+
+    expect(alertModal).not.toContain('bg-slate-100 text-gray-700')
   })
 
   test('resizes the main tray panel to fit its content without showing scrollbars', () => {

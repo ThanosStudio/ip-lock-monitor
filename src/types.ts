@@ -27,4 +27,15 @@ export interface MonitorState {
   countdown: number      // seconds until next check; 0 = currently checking
   isChecking: boolean
   error: string | null
+  checkCount: number
+  monitoringStartedAt: number | null
+}
+
+export interface MonitorAlertSnapshot {
+  lockedIp: string
+  currentIp: string
+  currentIpInfo: IpInfo
+  checkCount: number
+  guardDurationMs: number
+  detectedAt: string
 }
